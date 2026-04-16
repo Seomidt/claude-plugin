@@ -47,7 +47,12 @@ class PluginManager {
    * Here we create a stub directory so the system is fully functional offline.
    */
   async install(specifier) {
-    const { name, registry: registryName } = parseSpecifier(specifier);
+    const { name, registry: registryName, localPath } = parseSpecifier(specifier);
+
+    if (localPath) {
+      return this._installLocal(name, specifier, localPath);
+    }
+
     const registryConfig = resolveRegistry(registryName, this.registries);
 
     this.logger.info(`Installing ${name} from ${registryName} (${registryConfig.url})...`);
@@ -85,6 +90,38 @@ class PluginManager {
     this._writeLock(lock);
 
     this.logger.info(`Installed ${name}@${manifest.version}`);
+    return lock[name];
+  }
+
+  _installLocal(name, specifier, localPath) {
+    const resolvedSrc = path.resolve(this.baseDir, localPath);
+    if (!fs.existsSync(resolvedSrc)) {
+      throw new Error(`Local plugin path not found: ${resolvedSrc}`);
+    }
+
+    const pluginDir = path.join(this.pluginsDir, name);
+    if (fs.existsSync(pluginDir)) {
+      this.logger.info(`Plugin "${name}" is already installed. Run update to upgrade.`);
+      return this._readLock()[name] || null;
+    }
+
+    fs.mkdirSync(pluginDir, { recursive: true });
+
+    for (const file of fs.readdirSync(resolvedSrc)) {
+      fs.copyFileSync(path.join(resolvedSrc, file), path.join(pluginDir, file));
+    }
+
+    const manifestPath = path.join(pluginDir, 'plugin.json');
+    if (!fs.existsSync(manifestPath)) {
+      throw new Error(`Local plugin at "${resolvedSrc}" is missing plugin.json`);
+    }
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+
+    const lock = this._readLock();
+    lock[name] = { specifier, registry: 'local', version: manifest.version, dir: pluginDir };
+    this._writeLock(lock);
+
+    this.logger.info(`Installed ${name}@${manifest.version} (local)`);
     return lock[name];
   }
 
