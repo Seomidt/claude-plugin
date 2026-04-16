@@ -10,8 +10,14 @@ const BUILTIN_REGISTRIES = {
 /**
  * Parses a plugin specifier like "superpowers@claude-plugins-official"
  * into { name, registry }.
+ * Also handles local paths: "file:./path/to/plugin" → { name, localPath }.
  */
 function parseSpecifier(specifier) {
+  if (specifier.startsWith('file:')) {
+    const localPath = specifier.slice(5);
+    const name = require('path').basename(localPath);
+    return { name, registry: null, localPath };
+  }
   const atIdx = specifier.lastIndexOf('@');
   if (atIdx <= 0) {
     return { name: specifier, registry: 'claude-plugins-official' };

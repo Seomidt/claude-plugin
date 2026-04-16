@@ -1,23 +1,47 @@
 'use strict';
 
 let _context = null;
+let _focusedTopic = null;
+let _turnCount = 0;
+let _startTime = null;
 
 const COMMANDS = {
-  '/superhelp': () => {
-    return [
-      'Superpowers plugin active commands:',
-      '  /superhelp   — Show this message',
-      '  /think       — Enable extended thinking mode',
-      '  /recap       — Summarize the conversation so far',
-      '  /focus <topic> — Pin a topic for the session',
-    ].join('\n');
-  },
+  '/superhelp': () => [
+    'Superpowers plugin active commands:',
+    '  /superhelp         — Show this message',
+    '  /think             — Enable extended thinking mode for this turn',
+    '  /recap             — Summarize the conversation so far',
+    '  /focus <topic>     — Pin a topic for the session',
+  ].join('\n'),
+
   '/think': () => 'Extended thinking mode enabled for this turn.',
-  '/recap': () => 'Summarizing conversation... (hook into context via plugin context API)',
+
+  '/recap': () => {
+    const elapsed = _startTime ? Math.round((Date.now() - _startTime) / 1000) : 0;
+    const lines = [
+      'Session recap:',
+      `  Turns: ${_turnCount}`,
+      `  Duration: ${elapsed}s`,
+    ];
+    if (_focusedTopic) {
+      lines.push(`  Focused topic: ${_focusedTopic}`);
+    }
+    return lines.join('\n');
+  },
+
+  '/focus': (text) => {
+    const topic = text.replace(/^\/focus\s*/, '').trim();
+    if (!topic) return 'Usage: /focus <topic>';
+    _focusedTopic = topic;
+    return `Focused on: ${topic}`;
+  },
 };
 
 function activate(context) {
   _context = context;
+  _startTime = Date.now();
+  _turnCount = 0;
+  _focusedTopic = null;
   if (context.registerCommands) {
     context.registerCommands(COMMANDS);
   }
@@ -31,18 +55,22 @@ function deactivate() {
     _context.unregisterCommands(Object.keys(COMMANDS));
   }
   _context = null;
+  _focusedTopic = null;
+  _startTime = null;
+  _turnCount = 0;
 }
 
-/**
- * Hook called before each prompt is sent.
- * Can mutate or augment the prompt object.
- */
 function onPrompt(promptEvent) {
   if (!promptEvent || !promptEvent.text) return promptEvent;
-  const cmd = promptEvent.text.trim().split(/\s+/)[0];
+  _turnCount++;
+  const text = promptEvent.text.trim();
+  const cmd = text.split(/\s+/)[0];
   if (COMMANDS[cmd]) {
     promptEvent.intercepted = true;
-    promptEvent.response = COMMANDS[cmd](promptEvent.text);
+    promptEvent.response = COMMANDS[cmd](text);
+  } else if (_focusedTopic) {
+    promptEvent.context = promptEvent.context || {};
+    promptEvent.context.focusedTopic = _focusedTopic;
   }
   return promptEvent;
 }

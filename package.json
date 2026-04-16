@@ -7,7 +7,7 @@
     "claude-plugin": "bin/claude-plugin.js"
   },
   "scripts": {
-    "test": "node --test test/plugin-manager.test.js",
+    "test": "node --test test/plugin-manager.test.js test/superpowers.test.js",
     "lint": "node --check src/ bin/"
   },
   "keywords": ["claude", "plugin", "cli", "anthropic"],
