@@ -1,0 +1,8 @@
+{
+  "name": "superpowers",
+  "version": "1.0.0",
+  "description": "Adds superpowers to Claude — enhanced context tools, smarter completions, and power-user shortcuts",
+  "main": "index.js",
+  "author": "Claude Plugins Official",
+  "hooks": ["onActivate", "onDeactivate", "onPrompt"]
+}
